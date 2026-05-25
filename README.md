@@ -12,7 +12,7 @@ Non-goals (out of scope for this iteration):
 
 - Picking path optimization (TSP)
 - Multi-warehouse, cross-warehouse dispatch
-- Real persistence (use in-memory for now)
+- A production datastore (persistence runs on Spring Data JPA backed by an in-memory H2 database — no external DB, no cross-warehouse persistence concerns this iteration)
 - Worker-facing UI
 
 ---
@@ -38,6 +38,7 @@ Non-goals (out of scope for this iteration):
 - **Unidirectional dependency**: Business modules have zero knowledge of AI — no AI-related imports. AI module depends on business modules, never the reverse. This way, swapping AI out for a rules engine or a human UI later stays clean.
 - **Guardrails live in the business layer, not in the prompt**: Stock checks, order-status validation, worker availability — all enforced inside the business module APIs. The LLM cannot bypass them by hallucinating.
 - **Traceable decisions**: Every tool call and decision outcome is logged so it can be audited after the fact.
+- **Feature + sealed port (module structure)**: Each module is a single package named after the feature and exposes exactly **one public interface — its port** (e.g. `InventoryService`) plus immutable view records. The JPA entity, repository, and `@Service` implementation live package-private in a child `internal` package, so no other module can reach them at compile time. This enforces the unidirectional dependency and swappability principles structurally, not just by convention. An optional ArchUnit test can guard the boundary.
 
 ---
 
@@ -205,7 +206,7 @@ Out of scope for this iteration, but the design leaves room for:
 2. **Picking-path optimization** — add a `computePickingRoute` tool backed by A\* or OR-Tools. This is the LLM-plus-algorithm hybrid pattern
 3. **Event-driven dispatch** — new orders auto-trigger a dispatch cycle instead of needing a REST call
 4. **Evaluation harness** — generate N synthetic scenarios, run the AI dispatcher, a greedy baseline, and human-labeled ground truth, then compare KPIs (SLA hit rate, total picking time, idle time)
-5. **Persistence** — swap in-memory stores for JPA repositories
+5. **Persistence** — swap the H2 in-memory database for a production datastore (e.g. Postgres); the JPA repositories stay the same
 6. **Cross-provider comparison** — run the same prompt against Claude / GPT / Gemini and compare decision quality
 
 ---
