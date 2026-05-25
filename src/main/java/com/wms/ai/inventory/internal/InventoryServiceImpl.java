@@ -5,6 +5,7 @@ import com.wms.ai.inventory.Stock;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Package-private implementation of the Inventory port. Maps the package-private
@@ -31,13 +32,21 @@ class InventoryServiceImpl implements InventoryService {
     }
 
     @Override
+    @Transactional
     public boolean reserve(String sku, int quantity) {
-        throw new UnsupportedOperationException("reserve not implemented yet"); // Task 4
+        requirePositive(quantity);
+        return repository.reserve(sku, quantity) == 1;
     }
 
     @Override
     public void release(String sku, int quantity) {
         throw new UnsupportedOperationException("release not implemented yet"); // Task 5
+    }
+
+    private static void requirePositive(int quantity) {
+        if (quantity <= 0) {
+            throw new IllegalArgumentException("quantity must be positive: " + quantity);
+        }
     }
 
     private static Stock toStock(StockEntity entity) {
