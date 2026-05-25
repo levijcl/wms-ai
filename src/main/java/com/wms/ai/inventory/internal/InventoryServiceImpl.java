@@ -39,8 +39,10 @@ class InventoryServiceImpl implements InventoryService {
     }
 
     @Override
+    @Transactional
     public void release(String sku, int quantity) {
-        throw new UnsupportedOperationException("release not implemented yet"); // Task 5
+        requirePositive(quantity);
+        repository.release(sku, quantity);
     }
 
     private static void requirePositive(int quantity) {

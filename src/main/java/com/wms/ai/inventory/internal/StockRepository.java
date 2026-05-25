@@ -25,4 +25,12 @@ interface StockRepository extends JpaRepository<StockEntity, String> {
     @Query("UPDATE StockEntity s SET s.quantity = s.quantity - :qty "
             + "WHERE s.sku = :sku AND s.quantity >= :qty")
     int reserve(@Param("sku") String sku, @Param("qty") int qty);
+
+    /**
+     * Restock: unconditional increment for a known SKU. A no-op (0 rows) when the
+     * SKU is unknown — release is a best-effort compensation.
+     */
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("UPDATE StockEntity s SET s.quantity = s.quantity + :qty WHERE s.sku = :sku")
+    int release(@Param("sku") String sku, @Param("qty") int qty);
 }
