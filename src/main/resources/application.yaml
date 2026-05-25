@@ -1,3 +1,16 @@
 spring:
   application:
     name: ai
+  datasource:
+    url: jdbc:h2:mem:wms;DB_CLOSE_DELAY=-1
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+  jpa:
+    hibernate:
+      ddl-auto: update
+    open-in-view: false
+  # H2 web console at /h2-console (dev debugging only)
+  h2:
+    console:
+      enabled: true
