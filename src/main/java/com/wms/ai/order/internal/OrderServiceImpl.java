@@ -5,8 +5,11 @@ import com.wms.ai.order.Order;
 import com.wms.ai.order.OrderItem;
 import com.wms.ai.order.OrderService;
 import com.wms.ai.order.OrderStatus;
+import java.util.EnumSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,6 +21,20 @@ import org.springframework.transaction.annotation.Transactional;
  */
 @Service
 class OrderServiceImpl implements OrderService {
+
+    /**
+     * Legal next states per current status. Forward path
+     * {@code PENDING → ASSIGNED → PICKING → PICKED → SHIPPED}; {@code CANCELLED}
+     * reachable from any non-terminal state; {@code SHIPPED} and {@code CANCELLED}
+     * are terminal. This is the module's core guardrail.
+     */
+    private static final Map<OrderStatus, Set<OrderStatus>> ALLOWED_TRANSITIONS = Map.of(
+            OrderStatus.PENDING, EnumSet.of(OrderStatus.ASSIGNED, OrderStatus.CANCELLED),
+            OrderStatus.ASSIGNED, EnumSet.of(OrderStatus.PICKING, OrderStatus.CANCELLED),
+            OrderStatus.PICKING, EnumSet.of(OrderStatus.PICKED, OrderStatus.CANCELLED),
+            OrderStatus.PICKED, EnumSet.of(OrderStatus.SHIPPED, OrderStatus.CANCELLED),
+            OrderStatus.SHIPPED, EnumSet.noneOf(OrderStatus.class),
+            OrderStatus.CANCELLED, EnumSet.noneOf(OrderStatus.class));
 
     private final OrderRepository repository;
 
@@ -63,8 +80,16 @@ class OrderServiceImpl implements OrderService {
     }
 
     @Override
+    @Transactional
     public Order updateStatus(String id, OrderStatus newStatus) {
-        throw new UnsupportedOperationException("implemented in Task 4");
+        var entity = repository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("unknown order: " + id));
+        var current = entity.getStatus();
+        if (!ALLOWED_TRANSITIONS.get(current).contains(newStatus)) {
+            throw new IllegalStateException("illegal transition: " + current + " -> " + newStatus);
+        }
+        entity.setStatus(newStatus);
+        return toOrder(repository.save(entity));
     }
 
     private static void validate(NewOrder draft) {
