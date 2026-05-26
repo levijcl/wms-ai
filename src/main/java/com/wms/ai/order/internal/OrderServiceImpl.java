@@ -41,19 +41,25 @@ class OrderServiceImpl implements OrderService {
         return toOrder(repository.save(entity));
     }
 
+    // Reads are @Transactional(readOnly = true) so the lazy item collection is
+    // mapped to records while the session is open — open-in-view is off.
+
     @Override
+    @Transactional(readOnly = true)
     public Optional<Order> get(String id) {
-        throw new UnsupportedOperationException("implemented in Task 3");
+        return repository.findById(id).map(OrderServiceImpl::toOrder);
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<Order> listByStatus(OrderStatus status) {
-        throw new UnsupportedOperationException("implemented in Task 3");
+        return repository.findByStatus(status).stream().map(OrderServiceImpl::toOrder).toList();
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<Order> listAll() {
-        throw new UnsupportedOperationException("implemented in Task 3");
+        return repository.findAll().stream().map(OrderServiceImpl::toOrder).toList();
     }
 
     @Override
