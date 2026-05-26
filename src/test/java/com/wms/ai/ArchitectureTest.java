@@ -25,4 +25,16 @@ class ArchitectureTest {
                     .resideInAPackage("com.wms.ai.inventory.internal..")
                     .because("internal/ types are the module's private implementation; "
                             + "callers must depend only on the InventoryService port and Stock");
+
+    @ArchTest
+    static final ArchRule orderInternalsAreNotReferencedFromOutsideTheModule =
+            noClasses()
+                    .that()
+                    .resideOutsideOfPackage("com.wms.ai.order..")
+                    .should()
+                    .dependOnClassesThat()
+                    .resideInAPackage("com.wms.ai.order.internal..")
+                    .because("internal/ types are the module's private implementation; callers "
+                            + "must depend only on the OrderService port and the Order/OrderItem/"
+                            + "NewOrder views");
 }
