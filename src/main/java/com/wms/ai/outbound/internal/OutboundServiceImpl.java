@@ -34,6 +34,17 @@ class OutboundServiceImpl implements OutboundService {
             WorkerStatus.BUSY, EnumSet.of(WorkerStatus.IDLE, WorkerStatus.OFFLINE),
             WorkerStatus.OFFLINE, EnumSet.of(WorkerStatus.IDLE));
 
+    /**
+     * Legal next states per current task status. Forward path
+     * {@code ASSIGNED → PICKING → DONE}; {@code CANCELLED} reachable from any
+     * non-terminal state; {@code DONE} and {@code CANCELLED} are terminal.
+     */
+    private static final Map<TaskStatus, Set<TaskStatus>> ALLOWED_TASK_TRANSITIONS = Map.of(
+            TaskStatus.ASSIGNED, EnumSet.of(TaskStatus.PICKING, TaskStatus.CANCELLED),
+            TaskStatus.PICKING, EnumSet.of(TaskStatus.DONE, TaskStatus.CANCELLED),
+            TaskStatus.DONE, EnumSet.noneOf(TaskStatus.class),
+            TaskStatus.CANCELLED, EnumSet.noneOf(TaskStatus.class));
+
     private final WorkerRepository workers;
     private final PickingTaskRepository tasks;
 
@@ -94,8 +105,17 @@ class OutboundServiceImpl implements OutboundService {
     }
 
     @Override
+    @Transactional
     public PickingTask updateTaskStatus(String taskId, TaskStatus newStatus) {
-        throw new UnsupportedOperationException("not implemented yet"); // Task 5
+        var entity = tasks.findById(taskId)
+                .orElseThrow(() -> new IllegalArgumentException("unknown task: " + taskId));
+        var current = entity.getStatus();
+        if (!ALLOWED_TASK_TRANSITIONS.get(current).contains(newStatus)) {
+            throw new IllegalStateException(
+                    "illegal task transition: " + current + " -> " + newStatus);
+        }
+        entity.setStatus(newStatus);
+        return toTask(tasks.save(entity));
     }
 
     private static Worker toWorker(WorkerEntity entity) {
