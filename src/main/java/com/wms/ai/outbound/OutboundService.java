@@ -26,6 +26,13 @@ public interface OutboundService {
     List<Worker> listWorkersByStatus(WorkerStatus status);
 
     /**
+     * Every worker, in any status — the whole labour pool. Backs the coordinator's
+     * {@code warehouseState()} snapshot, which needs all workers rather than a single
+     * status slice.
+     */
+    List<Worker> listWorkers();
+
+    /**
      * Transition a worker to {@code newStatus}.
      *
      * @return the updated worker
@@ -47,6 +54,12 @@ public interface OutboundService {
 
     /** Current task for an id, or empty if the id is unknown. */
     Optional<PickingTask> getTask(String id);
+
+    /**
+     * Every picking task created so far, in any status. Backs the coordinator's
+     * {@code warehouseState()} snapshot and the console's picking-task list.
+     */
+    List<PickingTask> listTasks();
 
     /**
      * Transition a picking task to {@code newStatus}.

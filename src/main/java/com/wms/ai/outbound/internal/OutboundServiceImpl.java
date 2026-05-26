@@ -66,6 +66,11 @@ class OutboundServiceImpl implements OutboundService {
     }
 
     @Override
+    public List<Worker> listWorkers() {
+        return workers.findAll().stream().map(OutboundServiceImpl::toWorker).toList();
+    }
+
+    @Override
     @Transactional
     public Worker updateWorkerStatus(String workerId, WorkerStatus newStatus) {
         var entity = workers.findById(workerId)
@@ -102,6 +107,11 @@ class OutboundServiceImpl implements OutboundService {
     @Override
     public Optional<PickingTask> getTask(String id) {
         return tasks.findById(id).map(OutboundServiceImpl::toTask);
+    }
+
+    @Override
+    public List<PickingTask> listTasks() {
+        return tasks.findAll().stream().map(OutboundServiceImpl::toTask).toList();
     }
 
     @Override

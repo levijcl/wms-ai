@@ -103,14 +103,22 @@ public interface OutboundService {
     // --- Workers (seeded reference data; not created at runtime this iteration) ---
     Optional<Worker> getWorker(String id);                       // empty for unknown id
     List<Worker> listWorkersByStatus(WorkerStatus status);       // backs the AI's listAvailableWorkers() = IDLE
+    List<Worker> listWorkers();                                  // whole pool — backs coordinator warehouseState()
     Worker updateWorkerStatus(String workerId, WorkerStatus newStatus);  // validates the transition
 
     // --- Picking tasks (created at runtime by the coordinator) ---
     PickingTask createTask(String orderId, String workerId);     // UUID id, assignedAt = now, status = ASSIGNED
     Optional<PickingTask> getTask(String id);                    // empty for unknown id
+    List<PickingTask> listTasks();                               // all tasks — backs coordinator warehouseState()
     PickingTask updateTaskStatus(String taskId, TaskStatus newStatus);   // validates the transition
 }
 ```
+
+> **Added in coordinator Task 2 (`04-coordinator-module.md`):** `listWorkers()` and
+> `listTasks()` are whole-pool reads (no per-status filter) added so the coordinator's
+> `warehouseState()` can aggregate all workers and tasks without unioning per-status calls or
+> reaching into `internal`. They follow the module's read conventions (flat entities, no
+> transaction needed) and are covered by `OutboundServiceListAllTest`.
 
 ## Architecture decisions
 

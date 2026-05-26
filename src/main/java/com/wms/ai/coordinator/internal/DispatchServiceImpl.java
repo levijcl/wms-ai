@@ -29,7 +29,8 @@ class DispatchServiceImpl implements DispatchService {
 
     @Override
     public WarehouseState warehouseState() {
-        throw new UnsupportedOperationException("Task 2");
+        return new WarehouseState(
+                inventory.listAll(), orders.listAll(), outbound.listWorkers(), outbound.listTasks());
     }
 
     @Override
