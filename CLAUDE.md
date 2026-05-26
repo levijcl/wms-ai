@@ -5,10 +5,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## What this is
 
 An experiment: replace a human warehouse dispatcher with an **AI module** that orchestrates
-three independent business modules (Inventory / Order / Outbound) without those modules
-knowing the AI exists. See `README.md` for the full design and the dispatch cycle. The three
-business modules are built; the AI coordinator module is the planned next step and does not
-exist yet.
+three independent business modules (Inventory / Order / Outbound) without those modules knowing
+who orchestrates them. The dispatcher role is **pluggable** behind one seam (the **coordinator**)
+and exercised in two phases: **Phase A** — a human drives dispatch through a web console + live
+visualization; **Phase B** — the AI module plugs into the same seam. See `README.md` for the full
+design and the dispatch cycle. The three business modules are built; the **coordinator module**
+(the seam, `docs/tasks/04`), the **REST/web layer** (`05`), and the **Vue 3 console** (`06`) are
+the next step (Phase A), and the AI module follows (Phase B). None of those four exist yet.
 
 ## Commands
 
@@ -52,9 +55,9 @@ add its rule.
   (e.g. `OrderEntity → Order`) on the way out. Callers only ever see records.
 - **Unidirectional dependency.** Business modules have zero knowledge of the AI module and
   **zero knowledge of each other** — Order and Outbound do not import Inventory or one
-  another. Cross-module coordination is the (future) AI module's job alone. Outbound's
-  `createTask(orderId, …)` therefore treats `orderId` as an **opaque string** and must not
-  try to validate it against the Order module.
+  another. Cross-module coordination is the **coordinator module's** job alone (driven by the
+  human console now, the AI module later). Outbound's `createTask(orderId, …)` therefore treats
+  `orderId` as an **opaque string** and must not try to validate it against the Order module.
 - **Guardrails live in the service layer, never in a prompt or a caller.** Stock sufficiency,
   legal status transitions, and worker availability are enforced inside the module APIs. If a
   caller (eventually the LLM) issues a wrong instruction, **let it fail — do not relax the
@@ -78,6 +81,13 @@ add its rule.
   transaction — otherwise `LazyInitializationException`. Mutations are `@Transactional`.
 - **Dev seed data** is a `@Profile("dev")` `CommandLineRunner`, idempotent via a
   `count() > 0` guard, and never runs under the default (test) profile.
+- **The coordinator owns no entity.** `com.wms.ai.coordinator` is pure orchestration over the
+  three public ports; its one mutation, `assignOrderToWorker`, is `@Transactional` so reserve +
+  the order/worker status changes + task creation are **atomic across modules** (any failed
+  guardrail rolls back everything — never relax a check to force success). The web layer
+  (`com.wms.ai.web`) is thin controllers over the public ports — no logic, no `internal/` access —
+  and maps the error contract to HTTP (`IllegalArgumentException` → 400, `IllegalStateException`
+  → 409). The Vue 3 + Vite console lives in a separate top-level `frontend/` directory.
 
 ## Testing conventions
 
@@ -91,6 +101,10 @@ add its rule.
   in-memory DB URL so they don't pollute the shared default-profile database (see
   `SeedDataTest`).
 - AssertJ (`assertThat`, `assertThatThrownBy`) is the assertion library.
+- **Coordinator and web tests** use `@SpringBootTest` with the real beans (fixtures seeded via the
+  modules' repositories): the coordinator asserts the assign happy path **and** that each
+  guardrail failure rolls back (stock/order/worker unchanged); the web layer uses MockMvc to
+  assert routing and the 400/409 error mapping.
 
 ## Working in this repo
 
