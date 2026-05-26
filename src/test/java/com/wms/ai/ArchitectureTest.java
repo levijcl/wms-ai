@@ -37,4 +37,16 @@ class ArchitectureTest {
                     .because("internal/ types are the module's private implementation; callers "
                             + "must depend only on the OrderService port and the Order/OrderItem/"
                             + "NewOrder views");
+
+    @ArchTest
+    static final ArchRule outboundInternalsAreNotReferencedFromOutsideTheModule =
+            noClasses()
+                    .that()
+                    .resideOutsideOfPackage("com.wms.ai.outbound..")
+                    .should()
+                    .dependOnClassesThat()
+                    .resideInAPackage("com.wms.ai.outbound.internal..")
+                    .because("internal/ types are the module's private implementation; callers "
+                            + "must depend only on the OutboundService port and the Worker/"
+                            + "PickingTask views");
 }
