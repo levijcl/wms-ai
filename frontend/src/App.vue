@@ -1,43 +1,40 @@
 <script setup>
 import { onMounted, onUnmounted } from 'vue';
 import { useWarehouse } from '@/stores/useWarehouse.js';
+import WarehouseMap from '@/components/WarehouseMap.vue';
+import OrderBoard from '@/components/OrderBoard.vue';
+import TaskList from '@/components/TaskList.vue';
 
-// Task 1 scaffold: boot the store, poll GET /api/state, and show a raw snapshot so the
-// data path is verifiable. The map / board / task list / dispatch panel / event log
-// panels replace this dump in Tasks 2–3.
-const store = useWarehouse();
+// The console renders entirely from one polled GET /api/state snapshot (README §3.6).
+// Task 2 wires in the read-only panels; the dispatch panel + event log arrive in Task 3.
+const { stocks, orders, workers, tasks, reachable, startPolling, stopPolling } = useWarehouse();
 
-onMounted(() => store.startPolling());
-onUnmounted(() => store.stopPolling());
+onMounted(() => startPolling());
+onUnmounted(() => stopPolling());
 </script>
 
 <template>
   <main class="console">
     <header>
       <h1>WMS-AI Dispatch Console</h1>
-      <p :class="['conn', store.reachable.value ? 'ok' : 'down']">
-        {{ store.reachable.value ? 'backend connected' : 'backend unreachable' }}
+      <p :class="['conn', reachable ? 'ok' : 'down']">
+        {{ reachable ? 'backend connected' : 'backend unreachable' }}
       </p>
     </header>
 
-    <section class="snapshot">
-      <p>{{ store.stocks.value.length }} stocks · {{ store.orders.value.length }} orders ·
-        {{ store.workers.value.length }} workers · {{ store.tasks.value.length }} tasks</p>
-      <pre>{{ JSON.stringify({
-        stocks: store.stocks.value,
-        orders: store.orders.value,
-        workers: store.workers.value,
-        tasks: store.tasks.value,
-      }, null, 2) }}</pre>
-    </section>
+    <WarehouseMap :workers="workers" :stocks="stocks" />
+    <OrderBoard :orders="orders" />
+    <TaskList :tasks="tasks" />
   </main>
 </template>
 
 <style>
 body { margin: 0; font-family: system-ui, sans-serif; background: #f4f5f7; color: #1f2430; }
-.console { max-width: 1100px; margin: 0 auto; padding: 1rem; }
-header { display: flex; align-items: baseline; gap: 1rem; }
+.console { max-width: 1200px; margin: 0 auto; padding: 1rem; }
+.console > section { margin-bottom: 1.25rem; }
+.console h2 { font-size: 1rem; margin: 0 0 0.5rem; }
+header { display: flex; align-items: baseline; gap: 1rem; margin-bottom: 1rem; }
+header h1 { font-size: 1.25rem; margin: 0; }
 .conn.ok { color: #1a7f37; }
 .conn.down { color: #b42318; }
-.snapshot pre { background: #fff; border: 1px solid #e1e4e8; border-radius: 6px; padding: 0.75rem; overflow: auto; }
 </style>
