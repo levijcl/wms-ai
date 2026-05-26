@@ -49,4 +49,36 @@ class ArchitectureTest {
                     .because("internal/ types are the module's private implementation; callers "
                             + "must depend only on the OutboundService port and the Worker/"
                             + "PickingTask views");
+
+    @ArchTest
+    static final ArchRule coordinatorInternalsAreNotReferencedFromOutsideTheModule =
+            noClasses()
+                    .that()
+                    .resideOutsideOfPackage("com.wms.ai.coordinator..")
+                    .should()
+                    .dependOnClassesThat()
+                    .resideInAPackage("com.wms.ai.coordinator.internal..")
+                    .because("internal/ types are the module's private implementation; callers "
+                            + "must depend only on the DispatchService port and the WarehouseState/"
+                            + "DispatchResult views");
+
+    /**
+     * The coordinator is the one place that "calls down" into the three business
+     * modules' ports; that edge must stay one-directional. No business module may
+     * depend on the coordinator (nor, by extension, anything above it), so the modules
+     * remain ignorant of who orchestrates them (README §2).
+     */
+    @ArchTest
+    static final ArchRule businessModulesDoNotDependOnTheCoordinator =
+            noClasses()
+                    .that()
+                    .resideInAnyPackage(
+                            "com.wms.ai.inventory..",
+                            "com.wms.ai.order..",
+                            "com.wms.ai.outbound..")
+                    .should()
+                    .dependOnClassesThat()
+                    .resideInAPackage("com.wms.ai.coordinator..")
+                    .because("the coordinator → business-module-ports dependency is one-directional; "
+                            + "business modules must stay ignorant of who orchestrates them");
 }
