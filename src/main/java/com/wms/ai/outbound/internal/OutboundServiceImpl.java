@@ -5,11 +5,13 @@ import com.wms.ai.outbound.PickingTask;
 import com.wms.ai.outbound.TaskStatus;
 import com.wms.ai.outbound.Worker;
 import com.wms.ai.outbound.WorkerStatus;
+import java.time.Instant;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -69,13 +71,26 @@ class OutboundServiceImpl implements OutboundService {
     // --- Picking tasks ---
 
     @Override
+    @Transactional
     public PickingTask createTask(String orderId, String workerId) {
-        throw new UnsupportedOperationException("not implemented yet"); // Task 4
+        if (orderId == null || orderId.isBlank()) {
+            throw new IllegalArgumentException("orderId must not be blank");
+        }
+        if (workerId == null || workerId.isBlank()) {
+            throw new IllegalArgumentException("workerId must not be blank");
+        }
+        // The worker is ours to validate; the order is opaque (no Order dependency).
+        if (!workers.existsById(workerId)) {
+            throw new IllegalArgumentException("unknown worker: " + workerId);
+        }
+        var entity = new PickingTaskEntity(
+                UUID.randomUUID().toString(), orderId, workerId, Instant.now(), TaskStatus.ASSIGNED);
+        return toTask(tasks.save(entity));
     }
 
     @Override
     public Optional<PickingTask> getTask(String id) {
-        throw new UnsupportedOperationException("not implemented yet"); // Task 4
+        return tasks.findById(id).map(OutboundServiceImpl::toTask);
     }
 
     @Override
@@ -85,5 +100,14 @@ class OutboundServiceImpl implements OutboundService {
 
     private static Worker toWorker(WorkerEntity entity) {
         return new Worker(entity.getId(), entity.getName(), entity.getCurrentZone(), entity.getStatus());
+    }
+
+    private static PickingTask toTask(PickingTaskEntity entity) {
+        return new PickingTask(
+                entity.getId(),
+                entity.getOrderId(),
+                entity.getWorkerId(),
+                entity.getAssignedAt(),
+                entity.getStatus());
     }
 }
