@@ -5,9 +5,13 @@ import com.wms.ai.outbound.PickingTask;
 import com.wms.ai.outbound.TaskStatus;
 import com.wms.ai.outbound.Worker;
 import com.wms.ai.outbound.WorkerStatus;
+import java.util.EnumSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Package-private implementation of the Outbound port. Maps the package-private
@@ -16,6 +20,17 @@ import org.springframework.stereotype.Service;
  */
 @Service
 class OutboundServiceImpl implements OutboundService {
+
+    /**
+     * Legal next states per current worker status. {@code IDLE} and {@code BUSY}
+     * cycle freely and either may go {@code OFFLINE}; an {@code OFFLINE} worker
+     * must return to {@code IDLE} before being assigned. No self-transitions — so
+     * (re-)assigning a worker that is already {@code BUSY} is rejected (README §6).
+     */
+    private static final Map<WorkerStatus, Set<WorkerStatus>> ALLOWED_WORKER_TRANSITIONS = Map.of(
+            WorkerStatus.IDLE, EnumSet.of(WorkerStatus.BUSY, WorkerStatus.OFFLINE),
+            WorkerStatus.BUSY, EnumSet.of(WorkerStatus.IDLE, WorkerStatus.OFFLINE),
+            WorkerStatus.OFFLINE, EnumSet.of(WorkerStatus.IDLE));
 
     private final WorkerRepository workers;
     private final PickingTaskRepository tasks;
@@ -38,8 +53,17 @@ class OutboundServiceImpl implements OutboundService {
     }
 
     @Override
+    @Transactional
     public Worker updateWorkerStatus(String workerId, WorkerStatus newStatus) {
-        throw new UnsupportedOperationException("not implemented yet"); // Task 3
+        var entity = workers.findById(workerId)
+                .orElseThrow(() -> new IllegalArgumentException("unknown worker: " + workerId));
+        var current = entity.getStatus();
+        if (!ALLOWED_WORKER_TRANSITIONS.get(current).contains(newStatus)) {
+            throw new IllegalStateException(
+                    "illegal worker transition: " + current + " -> " + newStatus);
+        }
+        entity.setStatus(newStatus);
+        return toWorker(workers.save(entity));
     }
 
     // --- Picking tasks ---
