@@ -10,6 +10,8 @@ import com.wms.ai.order.OrderService;
 import com.wms.ai.order.OrderStatus;
 import com.wms.ai.outbound.OutboundService;
 import com.wms.ai.outbound.PickingTask;
+import com.wms.ai.outbound.TaskStatus;
+import com.wms.ai.outbound.Worker;
 import com.wms.ai.outbound.WorkerStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -64,5 +66,44 @@ class DispatchServiceImpl implements DispatchService {
         PickingTask task = outbound.createTask(orderId, workerId);
 
         return new DispatchResult(task, orderId, workerId);
+    }
+
+    /**
+     * One operator step for an assigned pick, run as one transaction (README §3.4 twin of
+     * {@code assignOrderToWorker}). Keyed on the order's current status; every sub-transition
+     * is guarded by the sub-entity's status so a partial or raced combo never issues an
+     * illegal move, and a terminal / not-yet-assigned order is a no-op.
+     */
+    @Override
+    @Transactional
+    public void advancePick(String taskId) {
+        PickingTask task = outbound.getTask(taskId)
+                .orElseThrow(() -> new IllegalArgumentException("unknown task: " + taskId));
+        Order order = orders.get(task.orderId())
+                .orElseThrow(() -> new IllegalArgumentException("unknown order: " + task.orderId()));
+        Worker worker = outbound.getWorker(task.workerId())
+                .orElseThrow(() -> new IllegalArgumentException("unknown worker: " + task.workerId()));
+
+        switch (order.status()) {
+            case ASSIGNED -> {
+                if (task.status() == TaskStatus.ASSIGNED) {
+                    outbound.updateTaskStatus(task.id(), TaskStatus.PICKING);
+                }
+                orders.updateStatus(order.id(), OrderStatus.PICKING);
+            }
+            case PICKING -> orders.updateStatus(order.id(), OrderStatus.PICKED);
+            case PICKED -> {
+                orders.updateStatus(order.id(), OrderStatus.SHIPPED);
+                if (task.status() == TaskStatus.PICKING) {
+                    outbound.updateTaskStatus(task.id(), TaskStatus.DONE);
+                }
+                if (worker.status() == WorkerStatus.BUSY) {
+                    outbound.updateWorkerStatus(worker.id(), WorkerStatus.IDLE);
+                }
+            }
+            default -> {
+                // PENDING (assignment handles it) or SHIPPED / CANCELLED (terminal): nothing to do.
+            }
+        }
     }
 }

@@ -36,4 +36,24 @@ public interface DispatchService {
      *                                  a non-PENDING order, or a non-IDLE/raced worker
      */
     DispatchResult assignOrderToWorker(String orderId, String workerId);
+
+    /**
+     * Advance an in-flight pick one operator step, as one transaction. This is the floor's
+     * twin to {@link #assignOrderToWorker}: the planner decides the assignment; the operator
+     * (here, the floor simulator) executes the pick. Keyed on the order's current status, it
+     * couples the order, task and worker forward to the next milestone:
+     *
+     * <ul>
+     *   <li>{@code ASSIGNED} → task {@code PICKING} + order {@code PICKING}
+     *   <li>{@code PICKING}  → order {@code PICKED}
+     *   <li>{@code PICKED}   → order {@code SHIPPED} + task {@code DONE} + worker {@code IDLE}
+     * </ul>
+     *
+     * <p>Each sub-transition is guarded by the sub-entity's current status, so a partial or
+     * raced combo never issues an illegal move. A terminal or not-yet-assigned order is a
+     * no-op. Like the assign composite it only <em>executes</em> — it never relaxes a check.
+     *
+     * @throws IllegalArgumentException if {@code taskId} is unknown
+     */
+    void advancePick(String taskId);
 }
