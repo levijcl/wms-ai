@@ -30,6 +30,9 @@ formatting (4-space indent).
 
 # run the app with sample data seeded (dev profile):
 ./gradlew bootRun --args='--spring.profiles.active=dev'
+
+# …and with the floor simulator driving picks to completion (the Phase A console):
+./gradlew bootRun --args='--spring.profiles.active=dev --wms.floor.simulator.enabled=true'
 ```
 
 H2 console (dev only): `http://localhost:8080/h2-console`, JDBC URL `jdbc:h2:mem:wms`, user
@@ -82,12 +85,20 @@ add its rule.
 - **Dev seed data** is a `@Profile("dev")` `CommandLineRunner`, idempotent via a
   `count() > 0` guard, and never runs under the default (test) profile.
 - **The coordinator owns no entity.** `com.wms.ai.coordinator` is pure orchestration over the
-  three public ports; its one mutation, `assignOrderToWorker`, is `@Transactional` so reserve +
-  the order/worker status changes + task creation are **atomic across modules** (any failed
-  guardrail rolls back everything — never relax a check to force success). The web layer
-  (`com.wms.ai.web`) is thin controllers over the public ports — no logic, no `internal/` access —
-  and maps the error contract to HTTP (`IllegalArgumentException` → 400, `IllegalStateException`
-  → 409). The Vue 3 + Vite console lives in a separate top-level `frontend/` directory.
+  three public ports. It has **two** `@Transactional` mutations, each atomic across modules (any
+  failed guardrail rolls back everything — never relax a check to force success): the **dispatch**
+  composite `assignOrderToWorker` (reserve + order/worker status + task creation), and the
+  **floor** composite `advancePick` (the coupled `PICKING → PICKED → SHIPPED` / task `DONE` /
+  worker `IDLE` step). The split mirrors the domain: the planner *decides* the assignment, the
+  operator *executes* the pick. The web layer (`com.wms.ai.web`) is thin controllers over the
+  public ports — no logic, no `internal/` access — and maps the error contract to HTTP
+  (`IllegalArgumentException` → 400, `IllegalStateException` → 409). The Vue 3 + Vite console
+  lives in a separate top-level `frontend/` directory.
+- **The floor simulator** (`com.wms.ai.floor.FloorSimulator`) stands in for the missing operator
+  (no worker UI): a `@Scheduled` driver that ticks `advancePick` for every in-flight pick. It
+  depends only on the `DispatchService` port and is gated by `@ConditionalOnProperty`
+  `wms.floor.simulator.enabled` (**default off**) — so it never runs during tests (none set it)
+  and no existing test needed changing. Enable it only for the live console run (see Commands).
 
 ## Testing conventions
 

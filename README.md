@@ -190,13 +190,14 @@ orchestration over the three public ports.
 
 ```java
 WarehouseState warehouseState();                                  // one read snapshot for the UI
-DispatchResult assignOrderToWorker(String orderId, String workerId);   // the atomic composite
+DispatchResult assignOrderToWorker(String orderId, String workerId);   // the atomic dispatch composite
+void           advancePick(String taskId);                        // the atomic floor (operator) step
 ```
 
 - **`warehouseState()`** aggregates the three modules into one read-only snapshot
   (`stocks`, `orders`, `workers`, `tasks`) — the single payload the visualization polls.
-- **`assignOrderToWorker(orderId, workerId)`** is the **atomic composite**, run inside one
-  transaction so it is all-or-nothing across modules:
+- **`assignOrderToWorker(orderId, workerId)`** is the **atomic dispatch composite**, run inside
+  one transaction so it is all-or-nothing across modules:
   1. `Inventory.reserve(...)` every item line — if any returns `false`, throw
      `IllegalStateException` (insufficient stock), which rolls back the reserves already made
   2. `Order.updateStatus(orderId, ASSIGNED)`
@@ -207,9 +208,17 @@ DispatchResult assignOrderToWorker(String orderId, String workerId);   // the at
   transaction rolls back and **nothing is left half-applied**. The coordinator never relaxes a
   check to force success (see §6).
 
+- **`advancePick(taskId)`** is the **atomic floor step** — the operator's twin to the dispatch
+  composite. Keyed on the order's current status it couples the order/task/worker forward one
+  milestone in one transaction (`ASSIGNED → task PICKING + order PICKING`; `PICKING → PICKED`;
+  `PICKED → SHIPPED + task DONE + worker IDLE`), each sub-transition guarded by the sub-entity's
+  status. It exists because there is no worker UI (§1): something has to *execute* the pick the
+  planner assigned. The dev-only **floor simulator** (§3.6) drives it on a fixed cadence.
+
 **Responsibility boundary**: the coordinator decides nothing about _which_ assignment to make —
-that judgement is the dispatcher's (human in Phase A, LLM in Phase B). The coordinator only
-**executes** an assignment atomically and **reads** aggregated state.
+that judgement is the dispatcher's (human in Phase A, LLM in Phase B). It only **executes** an
+assignment or a floor step atomically and **reads** aggregated state. The decision (assign) and
+the mechanical execution (the pick) are deliberately separate seams.
 
 ---
 
@@ -246,13 +255,23 @@ polls `GET /api/state` (~every 1.5s) into a reactive store and renders:
 - an **order board** (kanban by `OrderStatus`; cards show customer, priority color, a `dueAt`
   countdown, and items),
 - a **picking-task list** linking order ↔ worker with task status,
-- a **dispatch panel** (the human controls: pick a PENDING order + an IDLE worker → Assign;
-  advance order/task/worker statuses; submit a new order),
+- a **dispatch panel** — the planner's **one decision**: pick a PENDING order + an IDLE worker →
+  Assign (plus inject a new order). It does **not** advance the lifecycle: progressing the pick
+  is the operator's job, not the planner's.
 - an **event log** recording each action and its outcome — **including guardrail failures**
   (the 409s) verbatim.
 
 This console _is_ the human dispatcher in Phase A. In Phase B it is unchanged; the AI's reasoning
 trace simply streams into the same event log.
+
+**The floor simulator.** There is no worker-facing UI (§1), so once a pick is assigned, a
+dev-only **floor simulator** stands in for the operator and executes it: on a fixed cadence it
+calls the coordinator's `advancePick` (§3.4) for every in-flight pick, walking it
+`PICKING → PICKED → SHIPPED` (task → `DONE`, worker → `IDLE`). The console just visualizes the
+result on the next poll — the planner assigns and watches. It is opt-in
+(`wms.floor.simulator.enabled=true`, off by default so tests are unaffected) and runs
+server-side, so a headless Phase B (AI-triggered) dispatch progresses to completion with no
+browser open.
 
 ---
 
@@ -302,8 +321,11 @@ The picture is the same in both phases — only the dispatcher differs.
       └─ Outbound.createTask(...)        ← create the picking task
    └─ on a guardrail failure the call 409s and the event log shows why; nothing changes
 
-5. The map/board update on the next poll; the human advances the lifecycle
-   (PICKING → PICKED → SHIPPED; task → DONE; worker → IDLE) through the console
+5. The map/board update on the next poll. The human's job ends at the assignment — the
+   operator executes the pick. With no worker UI, the dev floor simulator stands in: it
+   calls DispatchService.advancePick on a fixed cadence, walking the lifecycle automatically
+   (ASSIGNED → PICKING → PICKED → SHIPPED; task → DONE; worker → IDLE). The console just
+   watches it happen.
 ```
 
 ### 4.2 Phase B — AI dispatch loop
@@ -317,8 +339,10 @@ The picture is the same in both phases — only the dispatcher differs.
 4. The AI executes the plan via assignOrderToWorker(orderId, workerId), which delegates
    to the SAME DispatchService.assignOrderToWorker composite the human used in Phase A.
 
-5. The console renders the result identically; the AI's reasoning trace streams into the
-   event log next to (or in place of) the human's actions.
+5. The console renders the result identically, and the same floor simulator advances each
+   assigned pick to completion — so a headless, AI-triggered run progresses with no browser
+   open. The AI's reasoning trace streams into the event log next to (or in place of) the
+   human's actions.
 ```
 
 ---
@@ -369,7 +393,8 @@ experiment is _watched_:
   `dueAt` countdown, and the item lines. The flow PENDING → … → SHIPPED is the story of a
   dispatch.
 - **Picking-task list** — each task links an order to a worker with its `TaskStatus`.
-- **Dispatch panel** — Phase A's controls (assign, advance statuses, submit order).
+- **Dispatch panel** — the planner's controls: **assign** a PENDING order to an IDLE worker, and
+  submit a new order. Advancing the pick is the floor simulator's job, not the panel's.
 - **Event log** — a chronological trace of actions and outcomes, **including guardrail 409s**. In
   Phase B the AI's reasoning trace renders here, making "why this assignment" debatable.
 
