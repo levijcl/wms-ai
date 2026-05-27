@@ -58,22 +58,13 @@ describe('App — dispatch wiring', () => {
     expect(store.assign).toHaveBeenCalledWith('O1', 'WK-1');
   });
 
-  it('routes advance-order to store.setOrderStatus with the next status', async () => {
+  it('routes a submit-order emit to store.submitOrder', async () => {
     const wrapper = mount(App);
-    await wrapper.get('[data-advance-order="O2"]').trigger('click');
-    expect(store.setOrderStatus).toHaveBeenCalledWith('O2', 'PICKED');
-  });
-
-  it('routes advance-task to store.setTaskStatus', async () => {
-    const wrapper = mount(App);
-    await wrapper.get('[data-advance-task="T1"]').trigger('click');
-    expect(store.setTaskStatus).toHaveBeenCalledWith('T1', 'PICKING');
-  });
-
-  it('routes free-worker to store.setWorkerStatus(id, IDLE)', async () => {
-    const wrapper = mount(App);
-    await wrapper.get('[data-free-worker="WK-5"]').trigger('click');
-    expect(store.setWorkerStatus).toHaveBeenCalledWith('WK-5', 'IDLE');
+    await wrapper.get('[data-testid="new-customer"]').setValue('Wayne Ent');
+    await wrapper.get('[data-testid="item-sku-0"]').setValue('SKU-1001');
+    await wrapper.get('[data-testid="submit-order"]').trigger('submit');
+    expect(store.submitOrder).toHaveBeenCalledTimes(1);
+    expect(store.submitOrder.mock.calls[0][0].customer).toBe('Wayne Ent');
   });
 });
 

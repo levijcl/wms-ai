@@ -48,11 +48,7 @@ onUnmounted(() => stopPolling());
       <DispatchPanel
         :orders="orders"
         :workers="workers"
-        :tasks="tasks"
         @assign="({ orderId, workerId }) => store.assign(orderId, workerId)"
-        @advance-order="({ id, status }) => store.setOrderStatus(id, status)"
-        @advance-task="({ id, status }) => store.setTaskStatus(id, status)"
-        @free-worker="({ id }) => store.setWorkerStatus(id, 'IDLE')"
         @submit-order="(draft) => store.submitOrder(draft)"
       />
     </template>

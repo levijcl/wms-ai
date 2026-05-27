@@ -2,32 +2,29 @@ import { mount } from '@vue/test-utils';
 import { describe, expect, it } from 'vitest';
 import DispatchPanel from './DispatchPanel.vue';
 
+// The planner's one decision is the assignment; the floor (auto-simulated) executes the
+// pick, so the dispatch panel no longer carries lifecycle-advance controls.
 const ORDERS = [
   { id: 'O1', customer: 'Acme', items: [], priority: 'URGENT', dueAt: null, status: 'PENDING' },
   { id: 'O2', customer: 'Globex', items: [], priority: 'HIGH', dueAt: null, status: 'PICKING' },
-  { id: 'O3', customer: 'Initech', items: [], priority: 'LOW', dueAt: null, status: 'SHIPPED' },
 ];
 const WORKERS = [
   { id: 'WK-1', name: 'Alice', currentZone: 'ZONE-1', status: 'IDLE' },
   { id: 'WK-5', name: 'Erin', currentZone: 'ZONE-2', status: 'BUSY' },
 ];
-const TASKS = [
-  { id: 'T1', orderId: 'O2', workerId: 'WK-5', assignedAt: null, status: 'ASSIGNED' },
-  { id: 'T2', orderId: 'O9', workerId: 'WK-1', assignedAt: null, status: 'DONE' },
-];
 
 function panel() {
-  return mount(DispatchPanel, { props: { orders: ORDERS, workers: WORKERS, tasks: TASKS } });
+  return mount(DispatchPanel, { props: { orders: ORDERS, workers: WORKERS } });
 }
 
-describe('DispatchPanel — assign', () => {
+describe('DispatchPanel — assign (the planner\'s only decision)', () => {
   it('lists only PENDING orders and only IDLE workers as assign options', () => {
     const wrapper = panel();
 
     const orderOpts = wrapper.get('[data-testid="assign-order"]').findAll('option[value]:not([value=""])');
     const workerOpts = wrapper.get('[data-testid="assign-worker"]').findAll('option[value]:not([value=""])');
 
-    expect(orderOpts.map((o) => o.attributes('value'))).toEqual(['O1']); // O2/O3 not PENDING
+    expect(orderOpts.map((o) => o.attributes('value'))).toEqual(['O1']); // O2 not PENDING
     expect(workerOpts.map((o) => o.attributes('value'))).toEqual(['WK-1']); // WK-5 is BUSY
   });
 
@@ -38,38 +35,17 @@ describe('DispatchPanel — assign', () => {
     await wrapper.get('[data-testid="assign-worker"]').setValue('WK-1');
     await wrapper.get('[data-testid="assign-btn"]').trigger('click');
 
-    expect(wrapper.emitted('assign')).toBeTruthy();
     expect(wrapper.emitted('assign')[0][0]).toEqual({ orderId: 'O1', workerId: 'WK-1' });
   });
 });
 
-describe('DispatchPanel — advance', () => {
-  it('emits advanceOrder with the next legal status for a non-terminal order', async () => {
+describe('DispatchPanel — no lifecycle-advance controls (the floor does that)', () => {
+  it('renders no order/task advance or free-worker buttons', () => {
     const wrapper = panel();
 
-    await wrapper.get('[data-advance-order="O2"]').trigger('click'); // PICKING → PICKED
-    expect(wrapper.emitted('advanceOrder')[0][0]).toEqual({ id: 'O2', status: 'PICKED' });
-  });
-
-  it('offers no advance button for a terminal (SHIPPED) order', () => {
-    const wrapper = panel();
-    expect(wrapper.find('[data-advance-order="O3"]').exists()).toBe(false);
-  });
-
-  it('emits advanceTask for a non-terminal task only', async () => {
-    const wrapper = panel();
-
-    await wrapper.get('[data-advance-task="T1"]').trigger('click'); // ASSIGNED → PICKING
-    expect(wrapper.emitted('advanceTask')[0][0]).toEqual({ id: 'T1', status: 'PICKING' });
-    expect(wrapper.find('[data-advance-task="T2"]').exists()).toBe(false); // DONE is terminal
-  });
-
-  it('emits freeWorker for a BUSY worker', async () => {
-    const wrapper = panel();
-
-    await wrapper.get('[data-free-worker="WK-5"]').trigger('click');
-    expect(wrapper.emitted('freeWorker')[0][0]).toEqual({ id: 'WK-5' });
-    expect(wrapper.find('[data-free-worker="WK-1"]').exists()).toBe(false); // already IDLE
+    expect(wrapper.find('[data-advance-order]').exists()).toBe(false);
+    expect(wrapper.find('[data-advance-task]').exists()).toBe(false);
+    expect(wrapper.find('[data-free-worker]').exists()).toBe(false);
   });
 });
 
@@ -102,8 +78,7 @@ describe('DispatchPanel — submit order', () => {
     await wrapper.get('[data-testid="item-qty-1"]').setValue('3');
     await wrapper.get('[data-testid="submit-order"]').trigger('submit');
 
-    const draft = wrapper.emitted('submitOrder')[0][0];
-    expect(draft.items).toEqual([
+    expect(wrapper.emitted('submitOrder')[0][0].items).toEqual([
       { sku: 'SKU-1001', quantity: 1 },
       { sku: 'SKU-3001', quantity: 3 },
     ]);
