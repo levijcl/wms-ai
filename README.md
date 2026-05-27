@@ -421,8 +421,8 @@ Out of scope for this iteration, but the design leaves room for:
 
 After Phase A (human console) runs, ask:
 
-- [ ] Can a person dispatch a full order lifecycle through the console, and does the visualization make warehouse state legible?
-- [ ] Do guardrail failures (out-of-stock, raced worker, illegal transition) surface clearly in the event log without corrupting state?
+- [x] Can a person dispatch a full order lifecycle through the console, and does the visualization make warehouse state legible?
+- [x] Do guardrail failures (out-of-stock, raced worker, illegal transition) surface clearly in the event log without corrupting state?
 
 After Phase B (AI plugged in) runs, ask:
 
