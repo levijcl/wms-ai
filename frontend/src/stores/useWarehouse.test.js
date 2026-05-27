@@ -33,6 +33,28 @@ describe('useWarehouse store', () => {
     expect(store.events.value).toEqual([]);
   });
 
+  describe('loaded flag (distinguishes "still loading" from "loaded but empty")', () => {
+    it('is false until the first successful read, then true', async () => {
+      const store = createWarehouseStore(fakeClient());
+      expect(store.loaded.value).toBe(false);
+
+      await store.refresh();
+      expect(store.loaded.value).toBe(true);
+    });
+
+    it('stays false if the backend is unreachable from the start', async () => {
+      const client = fakeClient({
+        getState: vi.fn().mockResolvedValue({ ok: false, status: 0, error: 'NetworkError', message: 'down' }),
+      });
+      const store = createWarehouseStore(client);
+
+      await store.refresh();
+
+      expect(store.loaded.value).toBe(false);
+      expect(store.reachable.value).toBe(false);
+    });
+  });
+
   describe('refresh', () => {
     it('populates the four lists from getState and marks the backend reachable', async () => {
       const store = createWarehouseStore(fakeClient());

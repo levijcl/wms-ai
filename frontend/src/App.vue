@@ -6,12 +6,13 @@ import OrderBoard from '@/components/OrderBoard.vue';
 import TaskList from '@/components/TaskList.vue';
 import DispatchPanel from '@/components/DispatchPanel.vue';
 import EventLog from '@/components/EventLog.vue';
+import Legend from '@/components/Legend.vue';
 
 // The console renders entirely from one polled GET /api/state snapshot (README §3.6).
 // The dispatch panel emits a dispatcher's choice; App routes it to the matching store
 // command, which POSTs, refreshes, and logs the outcome (success or guardrail message).
 const store = useWarehouse();
-const { stocks, orders, workers, tasks, reachable, events, startPolling, stopPolling } = store;
+const { stocks, orders, workers, tasks, reachable, loaded, events, startPolling, stopPolling } = store;
 
 onMounted(() => startPolling());
 onUnmounted(() => stopPolling());
@@ -26,24 +27,35 @@ onUnmounted(() => stopPolling());
       </p>
     </header>
 
-    <WarehouseMap :workers="workers" :stocks="stocks" />
-    <OrderBoard :orders="orders" />
+    <!-- Backend down: a banner, never a blank screen. Last-good panels stay visible below. -->
+    <p v-if="!reachable" class="offline-banner" data-testid="offline-banner">
+      Backend unreachable — showing the last snapshot. Retrying every poll…
+    </p>
 
-    <div class="two-col">
-      <TaskList :tasks="tasks" />
-      <EventLog :events="events" />
-    </div>
+    <!-- First load still in flight (and the backend is up): a loading line, no panels yet. -->
+    <p v-if="!loaded && reachable" class="loading" data-testid="loading">Loading warehouse state…</p>
 
-    <DispatchPanel
-      :orders="orders"
-      :workers="workers"
-      :tasks="tasks"
-      @assign="({ orderId, workerId }) => store.assign(orderId, workerId)"
-      @advance-order="({ id, status }) => store.setOrderStatus(id, status)"
-      @advance-task="({ id, status }) => store.setTaskStatus(id, status)"
-      @free-worker="({ id }) => store.setWorkerStatus(id, 'IDLE')"
-      @submit-order="(draft) => store.submitOrder(draft)"
-    />
+    <template v-if="loaded">
+      <Legend />
+      <WarehouseMap :workers="workers" :stocks="stocks" />
+      <OrderBoard :orders="orders" />
+
+      <div class="two-col">
+        <TaskList :tasks="tasks" />
+        <EventLog :events="events" />
+      </div>
+
+      <DispatchPanel
+        :orders="orders"
+        :workers="workers"
+        :tasks="tasks"
+        @assign="({ orderId, workerId }) => store.assign(orderId, workerId)"
+        @advance-order="({ id, status }) => store.setOrderStatus(id, status)"
+        @advance-task="({ id, status }) => store.setTaskStatus(id, status)"
+        @free-worker="({ id }) => store.setWorkerStatus(id, 'IDLE')"
+        @submit-order="(draft) => store.submitOrder(draft)"
+      />
+    </template>
   </main>
 </template>
 
@@ -56,6 +68,8 @@ header { display: flex; align-items: baseline; gap: 1rem; margin-bottom: 1rem; }
 header h1 { font-size: 1.25rem; margin: 0; }
 .conn.ok { color: #1a7f37; }
 .conn.down { color: #b42318; }
+.offline-banner { background: #fff5f5; border: 1px solid #ffcdca; color: #b42318; padding: 0.5rem 0.75rem; border-radius: 6px; }
+.loading { color: #57606a; }
 .two-col { display: flex; gap: 1rem; align-items: flex-start; }
 .two-col > section { flex: 1 1 0; }
 </style>

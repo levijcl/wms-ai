@@ -5,6 +5,9 @@ build/
 !**/src/main/**/build/
 !**/src/test/**/build/
 
+# Built SPA output (frontend/ `vite build` → served single-origin by Spring; generated, not committed)
+/src/main/resources/static/
+
 ### STS ###
 .apt_generated
 .classpath

@@ -22,6 +22,7 @@ export function createWarehouseStore(client = apiClient) {
   const workers = ref([]);
   const tasks = ref([]);
   const reachable = ref(true);
+  const loaded = ref(false); // false until the first successful read — lets the UI show a loading state
   const events = ref([]);
 
   let timer = null;
@@ -39,6 +40,7 @@ export function createWarehouseStore(client = apiClient) {
       workers.value = result.data.workers ?? [];
       tasks.value = result.data.tasks ?? [];
       reachable.value = true;
+      loaded.value = true;
     } else if (result.status === 0) {
       reachable.value = false;
     }
@@ -82,6 +84,7 @@ export function createWarehouseStore(client = apiClient) {
     workers,
     tasks,
     reachable,
+    loaded,
     events,
     refresh,
     startPolling,
