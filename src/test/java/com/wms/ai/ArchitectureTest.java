@@ -81,4 +81,25 @@ class ArchitectureTest {
                     .resideInAPackage("com.wms.ai.coordinator..")
                     .because("the coordinator → business-module-ports dependency is one-directional; "
                             + "business modules must stay ignorant of who orchestrates them");
+
+    /**
+     * The AI module is a <em>driver</em> on top of the coordinator (README §3.7), like the
+     * human console: it reads through tools and writes only through the coordinator port.
+     * Nothing beneath it — the business modules or the coordinator itself — may depend on it,
+     * so the dispatcher stays pluggable and the modules stay ignorant of who drives them.
+     */
+    @ArchTest
+    static final ArchRule nothingBelowTheAiModuleDependsOnIt =
+            noClasses()
+                    .that()
+                    .resideInAnyPackage(
+                            "com.wms.ai.inventory..",
+                            "com.wms.ai.order..",
+                            "com.wms.ai.outbound..",
+                            "com.wms.ai.coordinator..")
+                    .should()
+                    .dependOnClassesThat()
+                    .resideInAPackage("com.wms.ai.agent..")
+                    .because("the AI module is a pluggable dispatcher on top of the coordinator; "
+                            + "the modules and coordinator must not depend on it");
 }
