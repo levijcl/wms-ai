@@ -17,6 +17,7 @@ const store = vi.hoisted(() => ({
   setTaskStatus: vi.fn(),
   setWorkerStatus: vi.fn(),
   submitOrder: vi.fn(),
+  runAiDispatch: vi.fn(),
   startPolling: vi.fn(),
   stopPolling: vi.fn(),
 }));
@@ -65,6 +66,12 @@ describe('App — dispatch wiring', () => {
     await wrapper.get('[data-testid="submit-order"]').trigger('submit');
     expect(store.submitOrder).toHaveBeenCalledTimes(1);
     expect(store.submitOrder.mock.calls[0][0].customer).toBe('Wayne Ent');
+  });
+
+  it('routes an ai-dispatch emit to store.runAiDispatch', async () => {
+    const wrapper = mount(App);
+    await wrapper.get('[data-testid="run-ai"]').trigger('click');
+    expect(store.runAiDispatch).toHaveBeenCalledTimes(1);
   });
 });
 

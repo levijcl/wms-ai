@@ -14,7 +14,7 @@ const props = defineProps({
   workers: { type: Array, required: true },
 });
 
-const emit = defineEmits(['assign', 'submitOrder']);
+const emit = defineEmits(['assign', 'submitOrder', 'aiDispatch']);
 
 const pendingOrders = computed(() => props.orders.filter((o) => o.status === 'PENDING'));
 const idleWorkers = computed(() => props.workers.filter((w) => w.status === 'IDLE'));
@@ -71,7 +71,13 @@ function submitOrder() {
       <button type="button" data-testid="assign-btn" :disabled="!canAssign" @click="submitAssign">
         Assign
       </button>
-      <p class="hint">After assigning, the floor executes the pick automatically.</p>
+      <button type="button" class="ai" data-testid="run-ai" @click="emit('aiDispatch')">
+        Run AI dispatch
+      </button>
+      <p class="hint">
+        Assign by hand, or let the AI pick the single best order. Either way the floor then
+        executes the pick automatically.
+      </p>
     </fieldset>
 
     <!-- Inject a new order -->
@@ -105,6 +111,7 @@ select, input, button { font: inherit; padding: 0.3rem 0.4rem; border: 1px solid
 button { background: #0969da; color: #fff; border-color: #0969da; cursor: pointer; }
 button:disabled { background: #b6c2cf; border-color: #b6c2cf; cursor: not-allowed; }
 button.link { background: none; border: none; color: #0969da; padding: 0.2rem; cursor: pointer; }
+button.ai { background: #6639ba; border-color: #6639ba; }
 .hint { font-size: 0.75rem; color: #8c959f; margin: 0.4rem 0 0; }
 .new-order { margin-top: 0.75rem; border-top: 1px dashed #e1e4e8; padding-top: 0.6rem; }
 .row { display: flex; gap: 0.4rem; margin-bottom: 0.4rem; align-items: center; flex-wrap: wrap; }

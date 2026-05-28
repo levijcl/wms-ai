@@ -50,6 +50,7 @@ onUnmounted(() => stopPolling());
         :workers="workers"
         @assign="({ orderId, workerId }) => store.assign(orderId, workerId)"
         @submit-order="(draft) => store.submitOrder(draft)"
+        @ai-dispatch="() => store.runAiDispatch()"
       />
     </template>
   </main>

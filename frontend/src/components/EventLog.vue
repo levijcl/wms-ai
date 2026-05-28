@@ -32,5 +32,7 @@ const time = (at) =>
 .entry[data-kind='success'] .message { color: #1a7f37; }
 .entry[data-kind='error'] { border-left-color: #b42318; background: #fff5f5; }
 .entry[data-kind='error'] .message { color: #b42318; }
+.entry[data-kind='ai'] { border-left-color: #6639ba; background: #f7f4ff; }
+.entry[data-kind='ai'] .message { color: #6639ba; }
 .empty { color: #8c959f; font-style: italic; font-size: 0.85rem; }
 </style>

@@ -63,6 +63,32 @@ export function createWarehouseStore(client = apiClient) {
     return result;
   }
 
+  /**
+   * Trigger one Phase B AI dispatch cycle (POST /api/dispatch/ai), append the agent's reasoning
+   * and each outcome to the event log — an assignment as an `ai` entry, a guardrail skip as an
+   * `error` entry (verbatim) — then refresh. A failed call (e.g. missing key) is logged as an error.
+   */
+  async function runAiDispatch() {
+    const result = await client.aiDispatch();
+    if (result.ok) {
+      const { outcomes, reasoning } = result.data;
+      if (reasoning) {
+        logEvent('ai', `AI: ${reasoning}`);
+      }
+      for (const outcome of outcomes ?? []) {
+        if (outcome.assigned) {
+          logEvent('ai', `AI assigned ${outcome.orderId} → ${outcome.workerId} (${outcome.detail})`);
+        } else {
+          logEvent('error', `AI skipped ${outcome.orderId}: ${outcome.detail}`);
+        }
+      }
+    } else {
+      logEvent('error', `${result.status} ${result.error}: ${result.message}`);
+    }
+    await refresh();
+    return result;
+  }
+
   function startPolling() {
     if (timer !== null) {
       return;
@@ -89,6 +115,7 @@ export function createWarehouseStore(client = apiClient) {
     refresh,
     startPolling,
     stopPolling,
+    runAiDispatch,
     assign: (orderId, workerId) =>
       command(() => client.assign(orderId, workerId), () => `Assigned order ${orderId} → worker ${workerId}`),
     submitOrder: (draft) =>

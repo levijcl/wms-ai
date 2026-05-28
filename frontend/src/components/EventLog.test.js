@@ -26,6 +26,15 @@ describe('EventLog', () => {
     expect(entries[0].text()).toContain('insufficient stock'); // newest, shown first
   });
 
+  it('renders an ai entry (the AI dispatcher trace) with its own kind', () => {
+    const wrapper = mount(EventLog, {
+      props: { events: [{ id: 3, at: new Date(), kind: 'ai', message: 'AI: chose the URGENT order first.' }] },
+    });
+
+    const entry = wrapper.get('[data-kind="ai"]');
+    expect(entry.text()).toContain('chose the URGENT order first');
+  });
+
   it('shows an empty-state message when there are no events', () => {
     const wrapper = mount(EventLog, { props: { events: [] } });
 

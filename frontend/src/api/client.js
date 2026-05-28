@@ -63,6 +63,11 @@ export function releaseStock(sku, quantity) {
   return request('POST', '/api/inventory/release', { sku, quantity });
 }
 
+/** Run one Phase B AI dispatch cycle; resolves the trace { outcomes, reasoning }. */
+export function aiDispatch() {
+  return request('POST', '/api/dispatch/ai');
+}
+
 /** The whole client as one object, convenient for dependency injection in the store. */
 export const apiClient = {
   getState,
@@ -72,4 +77,5 @@ export const apiClient = {
   setTaskStatus,
   setWorkerStatus,
   releaseStock,
+  aiDispatch,
 };

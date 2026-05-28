@@ -39,6 +39,16 @@ describe('DispatchPanel — assign (the planner\'s only decision)', () => {
   });
 });
 
+describe('DispatchPanel — AI dispatch trigger (Phase B)', () => {
+  it('emits aiDispatch when the Run AI dispatch button is clicked', async () => {
+    const wrapper = panel();
+
+    await wrapper.get('[data-testid="run-ai"]').trigger('click');
+
+    expect(wrapper.emitted('aiDispatch')).toHaveLength(1);
+  });
+});
+
 describe('DispatchPanel — no lifecycle-advance controls (the floor does that)', () => {
   it('renders no order/task advance or free-worker buttons', () => {
     const wrapper = panel();

@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
+  aiDispatch,
   assign,
   getState,
   releaseStock,
@@ -153,6 +154,16 @@ describe('api/client', () => {
         error: 'IllegalArgumentException',
         message: 'unknown order id',
       });
+    });
+
+    it('aiDispatch POSTs /api/dispatch/ai (no body) and resolves the trace', async () => {
+      const trace = { outcomes: [{ orderId: 'O1', workerId: 'WK-1', assigned: true, detail: 'created task T-1' }], reasoning: 'URGENT first.' };
+      fetch.mockResolvedValue(jsonResponse(200, trace));
+
+      const result = await aiDispatch();
+
+      expect(fetch).toHaveBeenCalledWith('/api/dispatch/ai', expect.objectContaining({ method: 'POST' }));
+      expect(result).toEqual({ ok: true, status: 200, data: trace });
     });
   });
 });

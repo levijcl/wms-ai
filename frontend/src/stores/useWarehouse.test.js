@@ -18,6 +18,14 @@ function fakeClient(overrides = {}) {
     setTaskStatus: vi.fn().mockResolvedValue({ ok: true, status: 200, data: { id: 'T1', status: 'DONE' } }),
     setWorkerStatus: vi.fn().mockResolvedValue({ ok: true, status: 200, data: { id: 'WK-1', status: 'IDLE' } }),
     releaseStock: vi.fn().mockResolvedValue({ ok: true, status: 200, data: null }),
+    aiDispatch: vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      data: {
+        outcomes: [{ orderId: 'O1', workerId: 'WK-1', assigned: true, detail: 'created task T-1' }],
+        reasoning: 'Chose the URGENT order first.',
+      },
+    }),
     ...overrides,
   };
 }
@@ -166,6 +174,50 @@ describe('useWarehouse store', () => {
       expect(client.submitOrder).toHaveBeenCalled();
       expect(client.getState).toHaveBeenCalled();
       expect(store.events.value[0].kind).toBe('success');
+    });
+  });
+
+  describe('runAiDispatch (Phase B trigger)', () => {
+    it('logs the reasoning and each assignment as ai events, then refreshes', async () => {
+      const client = fakeClient();
+      const store = createWarehouseStore(client);
+
+      await store.runAiDispatch();
+
+      expect(client.aiDispatch).toHaveBeenCalled();
+      expect(client.getState).toHaveBeenCalled(); // refreshed after
+      expect(store.events.value.some((e) => e.kind === 'ai' && e.message.includes('URGENT order first'))).toBe(true);
+      expect(store.events.value.some((e) => e.kind === 'ai' && e.message.includes('O1') && e.message.includes('WK-1'))).toBe(true);
+    });
+
+    it('logs a skipped order as an error event with the verbatim reason', async () => {
+      const client = fakeClient({
+        aiDispatch: vi.fn().mockResolvedValue({
+          ok: true,
+          status: 200,
+          data: {
+            outcomes: [{ orderId: 'SEED-ORD-4', workerId: 'WK-2', assigned: false, detail: 'insufficient stock for SKU-2002' }],
+            reasoning: 'Skipped the out-of-stock order.',
+          },
+        }),
+      });
+      const store = createWarehouseStore(client);
+
+      await store.runAiDispatch();
+
+      expect(store.events.value.some((e) => e.kind === 'error' && e.message.includes('insufficient stock for SKU-2002'))).toBe(true);
+    });
+
+    it('logs an error when the AI call itself fails (e.g., missing key)', async () => {
+      const client = fakeClient({
+        aiDispatch: vi.fn().mockResolvedValue({ ok: false, status: 500, error: 'IllegalStateException', message: 'no api key' }),
+      });
+      const store = createWarehouseStore(client);
+
+      await store.runAiDispatch();
+
+      expect(store.events.value[0].kind).toBe('error');
+      expect(store.events.value[0].message).toContain('500');
     });
   });
 });
