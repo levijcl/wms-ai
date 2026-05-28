@@ -16,3 +16,13 @@ spring:
   h2:
     console:
       enabled: true
+  # Phase B AI dispatcher (README §3.7). The key is read from the ANTHROPIC_API_KEY env var;
+  # the empty default lets the app boot and tests run without one (only POST /api/dispatch/ai
+  # needs it). Model defaults to the cheapest (Haiku); temperature 0 for reproducible decisions.
+  ai:
+    anthropic:
+      api-key: ${ANTHROPIC_API_KEY:}
+      chat:
+        options:
+          model: claude-haiku-4-5
+          temperature: 0.0

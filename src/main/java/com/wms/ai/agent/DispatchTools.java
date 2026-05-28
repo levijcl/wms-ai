@@ -9,6 +9,8 @@ import com.wms.ai.order.OrderStatus;
 import com.wms.ai.outbound.OutboundService;
 import com.wms.ai.outbound.Worker;
 import com.wms.ai.outbound.WorkerStatus;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.ai.tool.annotation.ToolParam;
@@ -29,6 +31,11 @@ class DispatchTools {
     private final InventoryService inventory;
     private final OutboundService outbound;
     private final DispatchService dispatch;
+
+    // Ground-truth record of what the write tool actually did this cycle. The agent drains it
+    // after a run to build the trace, rather than trusting the model's self-report. (Single-user
+    // dev experiment; synchronized for safety but not designed for concurrent cycles.)
+    private final List<AssignmentOutcome> recorded = Collections.synchronizedList(new ArrayList<>());
 
     DispatchTools(
             OrderService orders,
@@ -66,12 +73,24 @@ class DispatchTools {
     public AssignmentOutcome assignOrderToWorker(
             @ToolParam(description = "the PENDING order's id") String orderId,
             @ToolParam(description = "the IDLE worker's id") String workerId) {
+        AssignmentOutcome outcome;
         try {
             var result = dispatch.assignOrderToWorker(orderId, workerId);
-            return new AssignmentOutcome(orderId, workerId, true, "created task " + result.task().id());
+            outcome = new AssignmentOutcome(orderId, workerId, true, "created task " + result.task().id());
         } catch (IllegalArgumentException | IllegalStateException rejected) {
             // Guardrail rejection — report it so the model skips this order; never relax it (§6).
-            return new AssignmentOutcome(orderId, workerId, false, rejected.getMessage());
+            outcome = new AssignmentOutcome(orderId, workerId, false, rejected.getMessage());
+        }
+        recorded.add(outcome);
+        return outcome;
+    }
+
+    /** Return the outcomes recorded since the last drain and clear them (used by the agent per cycle). */
+    List<AssignmentOutcome> drainOutcomes() {
+        synchronized (recorded) {
+            List<AssignmentOutcome> snapshot = List.copyOf(recorded);
+            recorded.clear();
+            return snapshot;
         }
     }
 }

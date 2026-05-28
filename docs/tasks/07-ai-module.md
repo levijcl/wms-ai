@@ -137,9 +137,14 @@ explicit max tool-iteration cap) that runs one cycle and returns `AiDispatchResu
 config (api-key, model, temperature 0).
 
 **Acceptance criteria:**
-- [ ] `dispatchOnce()` runs one cycle, exposes the four tools to the model, and assigns the **single best** pending order (at most one assignment), returning an `AiDispatchResult` (the outcome + reasoning); a tool-iteration cap is set so it cannot loop indefinitely (README §6).
+- [ ] `dispatchOnce()` runs one cycle, exposes the four tools to the model, and assigns the **single best** pending order (at most one assignment), returning an `AiDispatchResult` (the actual tool outcome(s) + the model's reasoning text).
+- [ ] The loop is bounded: Spring AI `2.0.0-M6` exposes **no per-request max-iterations knob** (`ToolCallingChatOptions` only toggles `internalToolExecutionEnabled`), so the bound comes from the single-best prompt ("assign exactly one order, then stop") + `temperature: 0` + the framework's internal tool loop — it cannot recurse indefinitely.
 - [ ] With no API key configured, the app still boots and existing tests stay green (beans load; only a real call needs a key).
 - [ ] The system prompt encodes the ranked factors (priority → dueAt → stock → idle worker → zone affinity), instructs skipping insufficient-stock orders, and instructs choosing exactly one best order per cycle.
+
+**Outcome capture:** `DispatchTools` records each `assignOrderToWorker` outcome; `dispatchOnce`
+drains that list after the call so `AiDispatchResult.outcomes` is the *ground truth* of what was
+assigned/skipped (not the model's self-report), and `reasoning` is the model's final text.
 
 **Verification:**
 - [ ] Unit test with a **mocked** `ChatModel`/`ChatClient`: a canned tool-call sequence produces the expected `AiDispatchResult`; the iteration cap is asserted.
