@@ -41,9 +41,8 @@ Two things shape the plan:
 - **Spring AI + Claude.** Build the agent with `ChatClient`, register tools with `@Tool`, set an
   explicit **max tool-iteration cap** (README §6). Config under `spring.ai.anthropic`:
   `api-key: ${ANTHROPIC_API_KEY:}` (empty default so boot never fails), a configurable model
-  (default a Sonnet-class model — `claude-sonnet-4-6` — for the §9 latency/cost target;
-  `claude-haiku-4-5` cheaper, `claude-opus-4-7` for max quality), `temperature: 0` for
-  reproducibility.
+  (**default `claude-haiku-4-5`** — cheapest, fits the §9 latency/cost target; `claude-sonnet-4-6`
+  / `claude-opus-4-7` available for higher quality), `temperature: 0` for reproducibility.
 - **Tools (read + the one write)** — thin wrappers, README §3.7:
   | Tool | Delegates to |
   |---|---|
@@ -51,9 +50,10 @@ Two things shape the plan:
   | `getStock(sku)` | `InventoryService.getStock(sku)` |
   | `listAvailableWorkers()` | `OutboundService.listWorkersByStatus(IDLE)` |
   | `assignOrderToWorker(orderId, workerId)` | `DispatchService.assignOrderToWorker(...)` — catches the guardrail exception and returns it as a tool result so the model can skip |
-- **Trigger = REST endpoint.** `POST /api/dispatch/ai` runs **one** dispatch cycle on demand — the
-  Phase B analog of the human clicking Assign. (A scheduler/auto-trigger is a README §8 future
-  extension, out of scope.)
+- **Trigger = REST endpoint; one cycle = one assignment.** `POST /api/dispatch/ai` runs **one**
+  dispatch cycle on demand, in which the agent assigns the **single best** pending order (at most
+  one assignment) — the exact Phase B analog of one human Assign click; click again to dispatch
+  the next. (A scheduler/auto-trigger is a README §8 future extension, out of scope.)
 - **Result shape** returned to the browser: `AiDispatchResult(List<AssignmentOutcome> outcomes,
   String reasoning)`, where `AssignmentOutcome(orderId, workerId, assigned, detail)` records each
   attempted assignment (success) or skip (with the guardrail/why detail). The console renders
@@ -137,9 +137,9 @@ explicit max tool-iteration cap) that runs one cycle and returns `AiDispatchResu
 config (api-key, model, temperature 0).
 
 **Acceptance criteria:**
-- [ ] `dispatchOnce()` runs one cycle, exposes the four tools to the model, and returns an `AiDispatchResult` (outcomes + reasoning); a tool-iteration cap is set so it cannot loop indefinitely (README §6).
+- [ ] `dispatchOnce()` runs one cycle, exposes the four tools to the model, and assigns the **single best** pending order (at most one assignment), returning an `AiDispatchResult` (the outcome + reasoning); a tool-iteration cap is set so it cannot loop indefinitely (README §6).
 - [ ] With no API key configured, the app still boots and existing tests stay green (beans load; only a real call needs a key).
-- [ ] The system prompt encodes the ranked factors (priority → dueAt → stock → idle worker → zone affinity) and instructs skipping insufficient-stock orders.
+- [ ] The system prompt encodes the ranked factors (priority → dueAt → stock → idle worker → zone affinity), instructs skipping insufficient-stock orders, and instructs choosing exactly one best order per cycle.
 
 **Verification:**
 - [ ] Unit test with a **mocked** `ChatModel`/`ChatClient`: a canned tool-call sequence produces the expected `AiDispatchResult`; the iteration cap is asserted.
@@ -205,13 +205,12 @@ entry kind, then refreshes. The dispatch panel keeps its human Assign control al
 | Missing API key breaks boot or CI | Med | `api-key: ${ANTHROPIC_API_KEY:}` empty default; autoconfig tolerates it at startup (current green suite proves it); only a real call needs the key — documented |
 | AI re-implements orchestration / bypasses guardrails | High | Reads via tools, the single write via `assignOrderToWorker`; ArchUnit keeps `agent` off every `internal/`; review against the §3.7 boundary |
 
-## Open questions
+## Resolved decisions
 
-- Default model id — proposing `claude-sonnet-4-6` (latency/cost per §9); confirm, or prefer
-  `claude-haiku-4-5` (cheaper) / `claude-opus-4-7` (max quality). Configurable either way.
-- Should `dispatchOnce()` assign **all** feasible PENDING orders in one cycle, or just the single
-  best one per call? Proposing **all feasible in priority order** (one click clears the board),
-  with the cap as the safety bound.
+- **Default model: `claude-haiku-4-5`** — cheapest, comfortably inside the §9 latency/cost target;
+  swap to `claude-sonnet-4-6`/`claude-opus-4-7` via config for higher quality.
+- **One cycle = one assignment.** `dispatchOnce()` assigns the single best pending order per call
+  (the Phase B analog of one human Assign click), with the tool-iteration cap as the safety bound.
 
 ## Verification (end to end)
 
