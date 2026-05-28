@@ -18,7 +18,7 @@ import org.springframework.stereotype.Component;
  * the model converges to one assignment and a final message rather than recursing.
  */
 @Component
-class DispatchAgent {
+public class DispatchAgent {
 
     private final ChatClient chatClient;
     private final DispatchTools tools;
@@ -38,7 +38,7 @@ class DispatchAgent {
      * Run one dispatch cycle. Returns the ground-truth tool outcomes (drained from
      * {@link DispatchTools}) plus the model's reasoning text. At most one assignment is made.
      */
-    AiDispatchResult dispatchOnce() {
+    public AiDispatchResult dispatchOnce() {
         tools.drainOutcomes(); // clear anything left from a prior cycle
         String reasoning = chatClient.prompt()
                 .user("Run one dispatch cycle now: choose the single best pending order and "
