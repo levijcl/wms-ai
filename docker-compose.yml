@@ -1,0 +1,19 @@
+# One-command run of the full WMS-AI stack (README §"Run it").
+#   docker compose up --build   →   http://localhost:8080
+#
+# Single service: the multi-stage Dockerfile builds the SPA + Spring Boot jar and serves both
+# single-origin. Persistence is in-memory H2, so there is nothing else to run.
+services:
+  wms-ai:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      # dev profile = seed data loaded; CORS for the Vite dev origin allowed.
+      SPRING_PROFILES_ACTIVE: dev
+      # Live demo: the floor simulator advances in-flight picks automatically
+      # (relaxed binding → wms.floor.simulator.enabled).
+      WMS_FLOOR_SIMULATOR_ENABLED: "true"
+      # Optional — only POST /api/dispatch/ai (the "Run AI dispatch" button) needs it.
+      # The stack boots fine without a key; set it in a .env file (see .env.example).
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}

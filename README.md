@@ -32,6 +32,41 @@ Non-goals (out of scope for this iteration):
 
 ---
 
+## Run it
+
+### Docker (recommended — no Java/Node/Gradle needed)
+
+```bash
+docker compose up --build      # builds the SPA + Spring jar, then starts the stack
+```
+
+Open **http://localhost:8080**. The container runs the `dev` profile, so it starts with seeded
+data and the floor simulator on — the console shows a **live, self-advancing demo** immediately
+(orders move PENDING → … → SHIPPED on their own).
+
+To enable Phase B **AI dispatch** (the "Run AI dispatch" button), provide an Anthropic key —
+everything else works without one:
+
+```bash
+cp .env.example .env           # then set ANTHROPIC_API_KEY=... in .env
+docker compose up --build
+```
+
+### Local dev
+
+Run the backend with seeded data and the live simulator, and the Vite dev server alongside:
+
+```bash
+export ANTHROPIC_API_KEY=...   # optional; only Phase B AI dispatch needs it
+./gradlew bootRun --args='--spring.profiles.active=dev --wms.floor.simulator.enabled=true'
+cd frontend && npm install && npm run dev   # console on :5173, proxies /api → :8080
+```
+
+Tests: `./gradlew test` (backend) and `cd frontend && npm test` (console). See `CLAUDE.md` for the
+full command reference. The Docker image skips tests for fast builds, so run them separately.
+
+---
+
 ## 2. Overall Architecture
 
 ```
